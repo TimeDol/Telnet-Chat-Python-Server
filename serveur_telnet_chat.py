@@ -9,6 +9,8 @@ import random
 import os
 import sys
 import traceback
+import urllib.request
+import json
 
 HOST = "0.0.0.0"
 PORT = 2323
@@ -359,6 +361,23 @@ def start_server():
         while True:
             try:
                 conn, addr = server.accept()
+                client_ip = addr[0]
+                # Autoriser IP locales
+                if client_ip.startswith(("127.", "192.168.", "10.", "172.")):
+                    pass
+                else:
+                    try:
+                        with urllib.request.urlopen(f"https://ipapi.co/{client_ip}/json/") as resp:
+                            data = json.load(resp)
+                            country = data.get("country")
+                            if country != "CH":
+                                console_log(f"Blocked non-Swiss IP: {client_ip} ({country})")
+                                conn.close()
+                                continue
+                    except Exception as e:
+                        console_log(f"GeoIP check failed for {client_ip}: {e}")
+                        conn.close()
+                        continue
                 # make recv non-blocking? we keep blocking but thread cleans itself
                 t = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
                 t.start()
